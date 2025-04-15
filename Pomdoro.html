@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Pomodoro Timer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Default gradient background */
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background 0.8s ease-in-out; /* Smoother background transition */
+            overflow: hidden; /* Prevent scrollbars from minor overflows */
+        }
+
+        /* Timer container styling */
+        .timer-container {
+             /* Frosted glass effect */
+            background: rgba(255, 255, 255, 0.6); /* Slightly less transparent */
+            backdrop-filter: blur(15px); /* Increased blur */
+            border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
+            transition: all 0.5s ease-in-out;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2); /* Softer shadow */
+            z-index: 10; /* Ensure timer is below popup */
+            position: relative;
+        }
+
+        /* Button base styles */
+        .mode-button, .control-button, #add-task-btn, .popup-close-btn {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smoother transition */
+            will-change: transform, box-shadow; /* Optimize for animation */
+        }
+
+        /* Button hover effects */
+        .mode-button:hover, .control-button:hover, #add-task-btn:hover, .popup-close-btn:hover {
+            transform: translateY(-3px) scale(1.03); /* Slightly more lift and scale */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+         /* Specific hover for Add Task */
+        #add-task-btn:hover {
+             background-color: #4338ca; /* Slightly darker indigo */
+        }
+         /* Specific hover for Start/Pause */
+        #start-pause-button:hover {
+             background-color: #4f46e5;
+        }
+         /* Specific hover for Reset */
+         #reset-button:hover {
+             background-color: #bdbdbd; /* Slightly darker gray */
+         }
+         /* Specific hover for Popup Close */
+         .popup-close-btn:hover {
+             background-color: #4f46e5; /* Indigo hover */
+         }
+
+
+        /* Button active states */
+        .mode-button:active, .control-button:active, #add-task-btn:active, .popup-close-btn:active {
+            transform: translateY(0px) scale(1); /* Back to normal size */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Active mode button style with glow */
+        .mode-button.active {
+            background-color: rgba(255, 255, 255, 0.7); /* Brighter active background */
+            color: #1a202c; /* Darker text */
+            font-weight: 700;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 0 5px rgba(96, 165, 250, 0.5); /* White and blue glow */
+        }
+
+        /* Timer display styling and glow */
+        #timer-display {
+            transition: color 0.5s ease, text-shadow 0.5s ease; /* Added text-shadow transition */
+            /* Default subtle glow */
+            text-shadow: 0 0 8px rgba(55, 65, 81, 0.3); /* Subtle dark glow */
+        }
+
+        /* Pulsing animation for timer when running */
+        @keyframes pulseGlow {
+            0%, 100% {
+                text-shadow: 0 0 8px rgba(55, 65, 81, 0.3); /* Default glow */
+                 transform: scale(1);
+            }
+            50% {
+                 /* Enhanced glow based on mode */
+                text-shadow: 0 0 15px var(--glow-color, rgba(96, 165, 250, 0.6)), /* Mode-specific glow */
+                             0 0 25px var(--glow-color-outer, rgba(96, 165, 250, 0.4)); /* Wider, fainter glow */
+                 transform: scale(1.01); /* Subtle scale */
+            }
+        }
+
+        /* Apply pulsing animation */
+        #timer-display.running {
+            animation: pulseGlow 2.5s infinite ease-in-out;
+        }
+
+        /* Task input focus style */
+        #task-input:focus {
+            outline: none;
+            border-color: #4f46e5; /* Indigo */
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3); /* Indigo focus ring */
+        }
+
+        /* Task item styling */
+        #task-list li {
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            cursor: pointer; /* Indicate interactibility */
+        }
+        #task-list li:hover {
+            background-color: rgba(255, 255, 255, 0.7);
+            transform: translateX(2px);
+        }
+         #task-list li span.completed {
+            text-decoration: line-through;
+            color: #9ca3af; /* Gray-400 */
+        }
+
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .timer-container {
+                padding: 1.5rem;
+                margin: 1rem; /* Add margin on small screens */
+            }
+            #timer-display {
+                font-size: 4.5rem; /* Slightly larger on small screens */
+            }
+            .mode-button, .control-button {
+                padding: 0.7rem 1.4rem; /* Slightly larger padding */
+                font-size: 0.875rem;
+            }
+            .flex.space-x-2, .flex.space-x-4 {
+                flex-direction: column; /* Stack buttons vertically */
+                align-items: stretch; /* Make buttons full width */
+                space-x-0; /* Remove horizontal space */
+                gap: 0.75rem; /* Add vertical gap */
+            }
+             #add-task-btn {
+                margin-top: 0.5rem; /* Add space above add button */
+            }
+            /* Adjust popup size on small screens */
+            .popup-content {
+                width: 90%;
+                padding: 1.5rem;
+            }
+            .popup-content h2 {
+                font-size: 1.5rem;
+            }
+            .popup-close-btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Message Box Styling (Kept for non-critical messages like 'Task added') */
+        #message-box {
+            position: fixed;
+            bottom: 20px; /* Position at bottom */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            font-size: 0.9rem;
+        }
+
+        #message-box.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-10px); /* Slide up effect */
+        }
+
+        /* Time's Up Popup Styles */
+        .popup-overlay {
+            position: fixed;
+            inset: 0; /* Cover entire screen */
+            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black */
+            backdrop-filter: blur(5px); /* Blur background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100; /* Ensure it's above everything */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease-in-out, visibility 0.4s step-end;
+        }
+        .popup-overlay.active {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.4s ease-in-out, visibility 0.4s step-start;
+        }
+        .popup-content {
+            background: white;
+            padding: 2rem 2.5rem;
+            border-radius: 16px; /* More rounded */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); /* Bounce effect */
+            max-width: 400px;
+            width: 80%;
+        }
+        .popup-overlay.active .popup-content {
+             transform: scale(1);
+        }
+        .popup-content h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #dc2626; /* Red color for emphasis */
+            margin-bottom: 1.5rem;
+        }
+        .popup-close-btn {
+             background-color: #6366f1; /* Indigo */
+             color: white;
+             padding: 0.75rem 1.5rem;
+             border-radius: 8px;
+             font-weight: 600;
+             cursor: pointer;
+             border: none;
+             margin-top: 1rem;
+        }
+
+    </style>
+</head>
+<body class="transition-colors duration-500 ease-in-out" data-mode="pomodoro">
+
+    <div class="timer-container p-8 rounded-2xl max-w-md w-full text-center">
+
+        <div class="flex justify-center space-x-2 mb-6">
+            <button id="pomodoro-mode" class="mode-button px-4 py-2 rounded-lg text-gray-700 bg-white/50" data-mode="pomodoro" data-time="1500">Pomodoro</button>
+            <button id="short-break-mode" class="mode-button px-4 py-2 rounded-lg text-gray-700 bg-white/50" data-mode="shortBreak" data-time="300">Short Break</button>
+            <button id="long-break-mode" class="mode-button px-4 py-2 rounded-lg text-gray-700 bg-white/50" data-mode="longBreak" data-time="900">Long Break</button>
+        </div>
+
+        <div id="timer-display" class="text-7xl md:text-8xl font-bold text-gray-800 my-8">
+            25:00
+        </div>
+
+        <div class="flex justify-center space-x-4 mb-8">
+            <button id="start-pause-button" class="control-button bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold shadow-md">
+                START
+            </button>
+             <button id="reset-button" class="control-button bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold shadow-md">
+                RESET
+            </button>
+        </div>
+
+        <div id="status-message" class="text-lg text-gray-600 mb-6 h-6">
+            Time to focus!
+        </div>
+
+        <div class="tasks-section border-t border-gray-300/50 pt-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Tasks</h2>
+            <div class="flex space-x-2">
+                 <input type="text" id="task-input" placeholder="Add a task..." class="flex-grow p-2 border border-gray-300/50 rounded-lg bg-white/70 focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all duration-200 ease-in-out">
+                 <button id="add-task-btn" class="bg-indigo-500 text-white px-4 py-2 rounded-lg font-semibold shadow-sm">Add</button>
+            </div>
+            <ul id="task-list" class="mt-4 text-left space-y-2 max-h-40 overflow-y-auto pr-2">
+                </ul>
+        </div>
+    </div>
+
+     <div id="message-box"></div>
+
+    <div id="times-up-popup" class="popup-overlay">
+        <div class="popup-content">
+            <h2 id="popup-title">Time's Up!</h2>
+            <p id="popup-message" class="text-gray-600 mb-4">Your timer session has finished.</p>
+            <button id="popup-close-button" class="popup-close-btn">OK</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <script>
+        // --- DOM Elements ---
+        const timerDisplay = document.getElementById('timer-display');
+        const startPauseButton = document.getElementById('start-pause-button');
+        const resetButton = document.getElementById('reset-button');
+        const statusMessage = document.getElementById('status-message');
+        const modeButtons = document.querySelectorAll('.mode-button');
+        const body = document.body;
+        const taskInput = document.getElementById('task-input');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const taskList = document.getElementById('task-list');
+        const messageBox = document.getElementById('message-box'); // For general messages
+        const timesUpPopup = document.getElementById('times-up-popup'); // Popup overlay
+        const popupTitle = document.getElementById('popup-title');
+        const popupMessage = document.getElementById('popup-message');
+        const popupCloseButton = document.getElementById('popup-close-button');
+        const root = document.documentElement;
+
+        // --- Timer State ---
+        let timerInterval = null;
+        let totalSeconds = 1500;
+        let currentSeconds = totalSeconds;
+        let isRunning = false;
+        let currentMode = 'pomodoro';
+        let pomodoroCount = 0;
+
+        // --- Test Mode State ---
+        let keySequence = ''; // Stores the sequence of keys pressed
+        const testSequence = '1234'; // Sequence to trigger test mode
+
+        // --- Sound Synthesis (Tone.js) ---
+        const synth = new Tone.Synth().toDestination();
+
+        function playAlarm() {
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.context.resume();
+                }
+                // Play a slightly more noticeable sequence
+                synth.triggerAttackRelease("E5", "8n", Tone.now());
+                synth.triggerAttackRelease("C5", "8n", Tone.now() + 0.2);
+                synth.triggerAttackRelease("G5", "4n", Tone.now() + 0.4); // Longer note
+            } catch (error) {
+                console.error("Error playing sound:", error);
+                // Fallback notification if sound fails (using the popup)
+                showTimesUpPopup("Timer finished! (Sound disabled)");
+            }
+        }
+
+        // --- Notifications ---
+        // For non-critical messages (e.g., task added)
+        function showMessage(message) {
+            messageBox.textContent = message;
+            messageBox.classList.add('show');
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 2500); // Slightly shorter duration
+        }
+
+        // Shows the "Time's Up" Popup
+        function showTimesUpPopup(title = "Time's Up!", message = `Your ${getModeMessage(currentMode)} session has finished.`) {
+            popupTitle.textContent = title;
+            popupMessage.textContent = message;
+            timesUpPopup.classList.add('active');
+        }
+
+        // Hides the "Time's Up" Popup
+        function hideTimesUpPopup() {
+            timesUpPopup.classList.remove('active');
+        }
+
+
+        // --- Timer Functions ---
+        function updateDisplay() {
+            const minutes = Math.floor(currentSeconds / 60);
+            const seconds = currentSeconds % 60;
+            timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            document.title = `${timerDisplay.textContent} - ${getModeMessage(currentMode)}`;
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+            Tone.start().then(() => {
+                 // console.log("Audio context started"); // Less verbose logging
+            }).catch(e => {
+                 console.warn("Audio context could not be started automatically:", e);
+                 showMessage("Click START again to enable sound.");
+            });
+
+            isRunning = true;
+            startPauseButton.textContent = 'PAUSE';
+            statusMessage.textContent = getModeMessage(currentMode);
+            timerDisplay.classList.add('running');
+
+            timerInterval = setInterval(() => {
+                if (currentSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    startPauseButton.textContent = 'START';
+                    timerDisplay.classList.remove('running');
+
+                    const finishedMode = currentMode; // Store mode before switching
+                    playAlarm(); // Play sound first
+
+                    // Determine the appropriate message for the popup
+                    let popupEndMessage;
+                    if (finishedMode === 'pomodoro') {
+                        pomodoroCount++;
+                        const nextMode = (pomodoroCount % 4 === 0) ? 'longBreak' : 'shortBreak';
+                        popupEndMessage = `Pomodoro #${pomodoroCount} finished! Time for a ${getModeMessage(nextMode)}.`;
+                        handleModeSwitch(nextMode);
+                        showTimesUpPopup("Focus Time Over!", popupEndMessage);
+                        startTimer(); // Auto start break
+                    } else { // End of a break
+                        popupEndMessage = `Break's over! Time to focus.`;
+                        handleModeSwitch('pomodoro');
+                        showTimesUpPopup("Break Finished!", popupEndMessage);
+                        // Don't auto-start next pomodoro
+                    }
+                    return;
+                }
+                currentSeconds--;
+                updateDisplay();
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            if (!isRunning) return;
+            clearInterval(timerInterval);
+            isRunning = false;
+            startPauseButton.textContent = 'START';
+            statusMessage.textContent = 'Paused';
+            timerDisplay.classList.remove('running');
+        }
+
+        function resetTimer(calledByModeSwitch = false) {
+            clearInterval(timerInterval);
+            isRunning = false;
+            currentSeconds = totalSeconds;
+            updateDisplay();
+            startPauseButton.textContent = 'START';
+            // Only reset status message if not part of a mode switch (which sets its own message)
+            if (!calledByModeSwitch) {
+                 statusMessage.textContent = getModeMessage(currentMode);
+            }
+            timerDisplay.classList.remove('running');
+            document.title = "Enhanced Pomodoro Timer";
+        }
+
+        function handleModeSwitch(eventOrMode) {
+             let buttonElement;
+             let newMode;
+             let newTime;
+
+             if (typeof eventOrMode === 'string') {
+                 newMode = eventOrMode;
+                 buttonElement = document.querySelector(`.mode-button[data-mode="${newMode}"]`);
+                 if (!buttonElement) return;
+                 newTime = parseInt(buttonElement.dataset.time, 10);
+             } else {
+                 buttonElement = eventOrMode.target;
+                 newMode = buttonElement.dataset.mode;
+                 newTime = parseInt(buttonElement.dataset.time, 10);
+             }
+
+             // Allow switching even if timer is running, but reset it
+             if (isRunning) {
+                 pauseTimer(); // Pause first to avoid issues
+             }
+
+            currentMode = newMode;
+            totalSeconds = newTime;
+
+            resetTimer(true); // Reset timer to the new duration, indicate it's part of mode switch
+
+            updateModeStyles(buttonElement);
+            updateBackgroundAndGlow(newMode);
+            statusMessage.textContent = getModeMessage(newMode); // Set status message for the new mode
+        }
+
+        function updateModeStyles(activeButton) {
+            modeButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+            activeButton.classList.add('active');
+        }
+
+        function updateBackgroundAndGlow(mode) {
+            body.className = 'transition-colors duration-500 ease-in-out';
+            body.dataset.mode = mode;
+            let glowColor = 'rgba(96, 165, 250, 0.6)';
+            let glowColorOuter = 'rgba(96, 165, 250, 0.4)';
+
+            switch (mode) {
+                case 'pomodoro':
+                    body.classList.add('bg-gradient-to-br', 'from-red-100', 'to-orange-200');
+                    glowColor = 'rgba(239, 68, 68, 0.6)';
+                    glowColorOuter = 'rgba(239, 68, 68, 0.4)';
+                    break;
+                case 'shortBreak':
+                    body.classList.add('bg-gradient-to-br', 'from-green-100', 'to-teal-200');
+                    glowColor = 'rgba(16, 185, 129, 0.6)';
+                    glowColorOuter = 'rgba(16, 185, 129, 0.4)';
+                    break;
+                case 'longBreak':
+                    body.classList.add('bg-gradient-to-br', 'from-blue-200', 'to-indigo-300');
+                    glowColor = 'rgba(99, 102, 241, 0.6)';
+                    glowColorOuter = 'rgba(99, 102, 241, 0.4)';
+                    break;
+                default:
+                    body.classList.add('bg-gradient-to-br', 'from-gray-100', 'to-gray-300');
+            }
+            root.style.setProperty('--glow-color', glowColor);
+            root.style.setProperty('--glow-color-outer', glowColorOuter);
+        }
+
+
+        function getModeMessage(mode) {
+            switch (mode) {
+                case 'pomodoro': return 'Time to focus!';
+                case 'shortBreak': return 'Short Break';
+                case 'longBreak': return 'Long Break';
+                case 'test': return 'Test Mode'; // Added for test mode
+                default: return '';
+            }
+        }
+
+        // --- Task Functions ---
+        function addTask() {
+            const taskText = taskInput.value.trim();
+            if (taskText === '') {
+                 showMessage("Please enter a task description."); // Use non-critical message box
+                return;
+            }
+
+            const listItem = document.createElement('li');
+            listItem.className = 'flex justify-between items-center bg-white/50 p-2 rounded-lg shadow-sm cursor-pointer';
+
+            const taskSpan = document.createElement('span');
+            taskSpan.textContent = taskText;
+            taskSpan.className = 'text-gray-700 flex-grow mr-2';
+
+            listItem.addEventListener('click', () => {
+                 taskSpan.classList.toggle('completed');
+                 listItem.classList.toggle('opacity-60');
+            });
+
+            const deleteButton = document.createElement('button');
+            deleteButton.innerHTML = '&times;';
+            deleteButton.className = 'text-red-400 hover:text-red-600 font-bold text-lg leading-none px-2 py-0 rounded hover:bg-red-100 transition-colors duration-150 flex-shrink-0';
+            deleteButton.onclick = function(e) {
+                e.stopPropagation();
+                taskList.removeChild(listItem);
+            };
+
+            listItem.appendChild(taskSpan);
+            listItem.appendChild(deleteButton);
+            taskList.appendChild(listItem);
+
+            taskInput.value = '';
+            showMessage("Task added!"); // Confirmation message
+        }
+
+        // --- Test Mode Activation ---
+        function handleKeydown(event) {
+            // Ignore if typing in the task input
+            if (event.target === taskInput) {
+                return;
+            }
+
+            keySequence += event.key;
+
+            // Keep sequence length manageable
+            if (keySequence.length > testSequence.length + 2) {
+                keySequence = keySequence.slice(-testSequence.length);
+            }
+
+            // Check if the end of the sequence matches the test sequence
+            if (keySequence.endsWith(testSequence)) {
+                console.log("Test sequence detected!");
+                activateTestMode();
+                keySequence = ''; // Reset sequence after activation
+            }
+        }
+
+        function activateTestMode() {
+            if (isRunning) {
+                pauseTimer(); // Stop current timer if running
+            }
+            // No need to switch mode visually, just set time
+            totalSeconds = 1; // Set timer to 1 second
+            currentSeconds = 1;
+            currentMode = 'test'; // Set internal mode for message logic if needed
+            updateDisplay();
+            showMessage("Test timer (1s) activated!");
+            startTimer(); // Start the 1-second timer
+            // Revert mode immediately after starting for correct display next cycle
+             currentMode = 'pomodoro'; // Or revert to the mode it was before test
+             // Reset pomodoro count if test mode interrupts flow? Optional.
+             // pomodoroCount = 0;
+        }
+
+
+        // --- Event Listeners ---
+        startPauseButton.addEventListener('click', () => {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        });
+
+        resetButton.addEventListener('click', () => resetTimer()); // Pass false explicitly or rely on default
+
+        modeButtons.forEach(button => {
+            button.addEventListener('click', handleModeSwitch);
+        });
+
+        addTaskBtn.addEventListener('click', addTask);
+
+        taskInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        // Listener for the popup close button
+        popupCloseButton.addEventListener('click', hideTimesUpPopup);
+        // Optional: Close popup if clicking the overlay background
+        timesUpPopup.addEventListener('click', (event) => {
+            if (event.target === timesUpPopup) { // Check if click is on the overlay itself
+                hideTimesUpPopup();
+            }
+        });
+
+        // Listener for test mode key sequence
+        document.addEventListener('keydown', handleKeydown);
+
+
+        // --- Initial Setup ---
+        updateDisplay();
+        updateBackgroundAndGlow(currentMode);
+        statusMessage.textContent = getModeMessage(currentMode);
+        document.getElementById('pomodoro-mode').classList.add('active');
+        document.title = "Enhanced Pomodoro Timer";
+
+    </script>
+
+</body>
+</html>
